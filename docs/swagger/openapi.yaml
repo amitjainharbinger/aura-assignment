@@ -1,0 +1,289 @@
+openapi: 3.0.0
+info:
+  title: ClearCompany-Paylocity Integration API
+  description: API documentation for the integration between ClearCompany ATS and Paylocity Headcount Planning
+  version: 1.0.0
+  contact:
+    name: API Support
+servers:
+  - url: https://{apiGatewayId}.execute-api.{region}.amazonaws.com/{stage}
+    variables:
+      apiGatewayId:
+        default: your-api-id
+        description: API Gateway ID
+      region:
+        default: us-east-1
+        description: AWS Region
+      stage:
+        default: development
+        description: API Stage
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+  schemas:
+    Requisition:
+      type: object
+      required:
+        - title
+        - description
+        - department
+        - location
+        - employmentType
+        - status
+      properties:
+        id:
+          type: string
+          readOnly: true
+        title:
+          type: string
+        description:
+          type: string
+        department:
+          type: string
+        location:
+          type: string
+        employmentType:
+          type: string
+        status:
+          type: string
+        customFields:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+
+    HeadcountPlan:
+      type: object
+      required:
+        - requisitionId
+        - department
+        - position
+        - startDate
+        - status
+        - headcount
+        - budget
+      properties:
+        id:
+          type: string
+          readOnly: true
+        requisitionId:
+          type: string
+        department:
+          type: string
+        position:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        status:
+          type: string
+        headcount:
+          type: integer
+          minimum: 1
+        budget:
+          type: number
+          minimum: 0
+        customFields:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+
+    WebhookEvent:
+      type: object
+      required:
+        - type
+        - entityId
+        - action
+        - data
+      properties:
+        type:
+          type: string
+          enum: [requisition, candidate]
+        entityId:
+          type: string
+        action:
+          type: string
+        data:
+          type: object
+          additionalProperties: true
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+            code:
+              type: string
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  /api/requisitions:
+    post:
+      summary: Create a new requisition
+      operationId: createRequisition
+      tags:
+        - Requisitions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Requisition'
+      responses:
+        '201':
+          description: Requisition created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Requisition'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/requisitions/{id}:
+    put:
+      summary: Update an existing requisition
+      operationId: updateRequisition
+      tags:
+        - Requisitions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Requisition'
+      responses:
+        '200':
+          description: Requisition updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Requisition'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Requisition not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/webhooks/requisition-status:
+    post:
+      summary: Handle requisition status webhook
+      operationId: handleRequisitionStatusWebhook
+      tags:
+        - Webhooks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookEvent'
+      responses:
+        '200':
+          description: Webhook processed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          description: Invalid webhook payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/webhooks/candidate-status:
+    post:
+      summary: Handle candidate status webhook
+      operationId: handleCandidateStatusWebhook
+      tags:
+        - Webhooks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookEvent'
+      responses:
+        '200':
+          description: Webhook processed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          description: Invalid webhook payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'

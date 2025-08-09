@@ -1,0 +1,312 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: ClearCompany-Paylocity Integration
+
+# Global configuration for all functions
+Globals:
+  Function:
+    Runtime: nodejs18.x
+    MemorySize: 256
+    Timeout: 30
+    Environment:
+      Variables:
+        NODE_ENV: !Ref Environment
+        LOG_LEVEL: !Ref LogLevel
+
+Parameters:
+  Environment:
+    Type: String
+    Default: development
+    AllowedValues:
+      - development
+      - staging
+      - production
+    Description: Environment name for the deployment
+
+  LogLevel:
+    Type: String
+    Default: info
+    AllowedValues:
+      - debug
+      - info
+      - warn
+      - error
+    Description: Log level for Lambda functions
+
+Resources:
+  # EventBridge Bus for Mock API Events
+  MockEventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: !Sub ${AWS::StackName}-mock-events
+
+  # Mock API Gateway
+  MockApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Environment
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: "'*'"
+      Auth:
+        ApiKeyRequired: true
+
+  # Mock API DynamoDB Tables
+  MockClearCompanyTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: mock-clearcompany-data
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  MockPaylocityTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: mock-paylocity-data
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: requisitionId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: requisitionId-index
+          KeySchema:
+            - AttributeName: requisitionId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  # Mock ClearCompany API
+  MockClearCompanyApi:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/functions/mocks/
+      Handler: clearcompany.handler
+      Description: Mock ClearCompany API
+      Environment:
+        Variables:
+          EVENT_BUS_NAME: !Ref MockEventBus
+      Events:
+        CreateRequisition:
+          Type: Api
+          Properties:
+            Path: /clearcompany/requisitions
+            Method: POST
+            RestApiId: !Ref MockApiGateway
+        UpdateRequisition:
+          Type: Api
+          Properties:
+            Path: /clearcompany/requisitions/{id}
+            Method: PUT
+            RestApiId: !Ref MockApiGateway
+        GetRequisition:
+          Type: Api
+          Properties:
+            Path: /clearcompany/requisitions/{id}
+            Method: GET
+            RestApiId: !Ref MockApiGateway
+        DeleteRequisition:
+          Type: Api
+          Properties:
+            Path: /clearcompany/requisitions/{id}
+            Method: DELETE
+            RestApiId: !Ref MockApiGateway
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MockClearCompanyTable
+        - EventBridgePutEventsPolicy:
+            EventBusName: !Ref MockEventBus
+
+  # Mock Paylocity API
+  MockPaylocityApi:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/functions/mocks/
+      Handler: paylocity.handler
+      Description: Mock Paylocity API
+      Environment:
+        Variables:
+          EVENT_BUS_NAME: !Ref MockEventBus
+      Events:
+        CreatePlan:
+          Type: Api
+          Properties:
+            Path: /paylocity/headcount-planning
+            Method: POST
+            RestApiId: !Ref MockApiGateway
+        UpdatePlan:
+          Type: Api
+          Properties:
+            Path: /paylocity/headcount-planning/{id}
+            Method: PUT
+            RestApiId: !Ref MockApiGateway
+        GetPlan:
+          Type: Api
+          Properties:
+            Path: /paylocity/headcount-planning/{id}
+            Method: GET
+            RestApiId: !Ref MockApiGateway
+        GetPlanByRequisition:
+          Type: Api
+          Properties:
+            Path: /paylocity/headcount-planning/requisition/{id}
+            Method: GET
+            RestApiId: !Ref MockApiGateway
+        DeletePlan:
+          Type: Api
+          Properties:
+            Path: /paylocity/headcount-planning/{id}
+            Method: DELETE
+            RestApiId: !Ref MockApiGateway
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MockPaylocityTable
+        - EventBridgePutEventsPolicy:
+            EventBusName: !Ref MockEventBus
+
+  # Main API Gateway
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Environment
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: "'*'"
+      Auth:
+        ApiKeyRequired: true
+
+  # DynamoDB Tables
+  IntegrationStateTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${AWS::StackName}-integration-state
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  # Lambda Functions
+  RequisitionCreateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/functions/requisition/
+      Handler: create.handler
+      Description: Creates a new requisition in ClearCompany
+      Environment:
+        Variables:
+          USE_MOCK_APIS: 'true'
+          API_ENDPOINT: !Sub https://${MockApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /api/requisitions
+            Method: POST
+            RestApiId: !Ref ApiGateway
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref IntegrationStateTable
+
+  RequisitionUpdateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/functions/requisition/
+      Handler: update.handler
+      Description: Updates an existing requisition in ClearCompany
+      Environment:
+        Variables:
+          USE_MOCK_APIS: 'true'
+          API_ENDPOINT: !Sub https://${MockApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /api/requisitions/{id}
+            Method: PUT
+            RestApiId: !Ref ApiGateway
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref IntegrationStateTable
+
+  WebhookHandlerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/functions/webhook/
+      Handler: handler.processWebhook
+      Description: Handles incoming webhooks from both systems
+      Environment:
+        Variables:
+          USE_MOCK_APIS: 'true'
+          API_ENDPOINT: !Sub https://${MockApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}
+      Events:
+        RequisitionStatusWebhook:
+          Type: Api
+          Properties:
+            Path: /api/webhooks/requisition-status
+            Method: POST
+            RestApiId: !Ref ApiGateway
+        CandidateStatusWebhook:
+          Type: Api
+          Properties:
+            Path: /api/webhooks/candidate-status
+            Method: POST
+            RestApiId: !Ref ApiGateway
+        MockEvents:
+          Type: EventBridgeRule
+          Properties:
+            EventBusName: !Ref MockEventBus
+            Pattern:
+              source:
+                - mock.clearcompany
+                - mock.paylocity
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref IntegrationStateTable
+
+  # Secrets Manager for API Credentials
+  ApiCredentialsSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub ${AWS::StackName}/api-credentials
+      Description: API credentials for ClearCompany and Paylocity
+      SecretString: '{"clearCompanyApiKey":"mock-key","paylocityApiKey":"mock-key"}'
+
+Outputs:
+  ApiEndpoint:
+    Description: Main API Gateway endpoint URL
+    Value: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/
+
+  MockApiEndpoint:
+    Description: Mock APIs endpoint URL
+    Value: !Sub https://${MockApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/
+
+  IntegrationStateTableName:
+    Description: Name of DynamoDB table for integration state
+    Value: !Ref IntegrationStateTable
+
+  ApiCredentialsSecretArn:
+    Description: ARN of the Secrets Manager secret storing API credentials
+    Value: !Ref ApiCredentialsSecret
