@@ -1,474 +1,119 @@
 {
-	"info": {
-		"_postman_id": "b5d8f8b0-1b8a-4b5e-9b5e-5b0b0b0b0b0b",
-		"name": "ClearCompany-Paylocity Integration",
-		"description": "API collection for ClearCompany-Paylocity Integration",
-		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-	},
-	"item": [
-		{
-			"name": "Main API",
-			"item": [
-				{
-					"name": "Create Requisition",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							},
-							{
-								"key": "x-api-key",
-								"value": "{{apiKey}}",
-								"type": "text"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"title\": \"Software Engineer\",\n    \"description\": \"Senior Software Engineer position\",\n    \"department\": \"Engineering\",\n    \"location\": \"Remote\",\n    \"employmentType\": \"Full-time\",\n    \"status\": \"Open\"\n}"
-						},
-						"url": {
-							"raw": "{{apiEndpoint}}/api/requisitions",
-							"host": [
-								"{{apiEndpoint}}"
-							],
-							"path": [
-								"api",
-								"requisitions"
-							]
-						},
-						"description": "Create a new requisition"
-					}
-				},
-				{
-					"name": "Update Requisition",
-					"request": {
-						"method": "PUT",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							},
-							{
-								"key": "x-api-key",
-								"value": "{{apiKey}}",
-								"type": "text"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"status\": \"Closed\"\n}"
-						},
-						"url": {
-							"raw": "{{apiEndpoint}}/api/requisitions/{{requisitionId}}",
-							"host": [
-								"{{apiEndpoint}}"
-							],
-							"path": [
-								"api",
-								"requisitions",
-								"{{requisitionId}}"
-							]
-						},
-						"description": "Update an existing requisition"
-					}
-				}
-			]
-		},
-		{
-			"name": "Mock ClearCompany API",
-			"item": [
-				{
-					"name": "Create Requisition",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							},
-							{
-								"key": "x-api-key",
-								"value": "{{mockApiKey}}",
-								"type": "text"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"title\": \"Software Engineer\",\n    \"description\": \"Senior Software Engineer position\",\n    \"department\": \"Engineering\",\n    \"location\": \"Remote\",\n    \"employmentType\": \"Full-time\",\n    \"status\": \"Open\"\n}"
-						},
-						"url": {
-							"raw": "{{mockApiEndpoint}}/clearcompany/requisitions",
-							"host": [
-								"{{mockApiEndpoint}}"
-							],
-							"path": [
-								"clearcompany",
-								"requisitions"
-							]
-						},
-						"description": "Create a new requisition in mock ClearCompany API"
-					}
-				},
-				{
-					"name": "Update Requisition",
-					"request": {
-						"method": "PUT",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							},
-							{
-								"key": "x-api-key",
-								"value": "{{mockApiKey}}",
-								"type": "text"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"status\": \"Closed\"\n}"
-						},
-						"url": {
-							"raw": "{{mockApiEndpoint}}/clearcompany/requisitions/{{requisitionId}}",
-							"host": [
-								"{{mockApiEndpoint}}"
-							],
-							"path": [
-								"clearcompany",
-								"requisitions",
-								"{{requisitionId}}"
-							]
-						},
-						"description": "Update an existing requisition in mock ClearCompany API"
-					}
-				},
-				{
-					"name": "Get Requisition",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "x-api-key",
-								"value": "{{mockApiKey}}",
-								"type": "text"
-							}
-						],
-						"url": {
-							"raw": "{{mockApiEndpoint}}/clearcompany/requisitions/{{requisitionId}}",
-							"host": [
-								"{{mockApiEndpoint}}"
-							],
-							"path": [
-								"clearcompany",
-								"requisitions",
-								"{{requisitionId}}"
-							]
-						},
-						"description": "Get a requisition by ID from mock ClearCompany API"
-					}
-				},
-				{
-					"name": "Delete Requisition",
-					"request": {
-						"method": "DELETE",
-						"header": [
-							{
-								"key": "x-api-key",
-								"value": "{{mockApiKey}}",
-								"type": "text"
-							}
-						],
-						"url": {
-							"raw": "{{mockApiEndpoint}}/clearcompany/requisitions/{{requisitionId}}",
-							"host": [
-								"{{mockApiEndpoint}}"
-							],
-							"path": [
-								"clearcompany",
-								"requisitions",
-								"{{requisitionId}}"
-							]
-						},
-						"description": "Delete a requisition from mock ClearCompany API"
-					}
-				}
-			]
-		},
-		{
-			"name": "Mock Paylocity API",
-			"item": [
-				{
-					"name": "Create Headcount Plan",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							},
-							{
-								"key": "x-api-key",
-								"value": "{{mockApiKey}}",
-								"type": "text"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"requisitionId\": \"{{requisitionId}}\",\n    \"department\": \"Engineering\",\n    \"position\": \"Software Engineer\",\n    \"startDate\": \"2024-01-01\",\n    \"status\": \"Open\",\n    \"headcount\": 1,\n    \"budget\": 150000\n}"
-						},
-						"url": {
-							"raw": "{{mockApiEndpoint}}/paylocity/headcount-planning",
-							"host": [
-								"{{mockApiEndpoint}}"
-							],
-							"path": [
-								"paylocity",
-								"headcount-planning"
-							]
-						},
-						"description": "Create a new headcount plan in mock Paylocity API"
-					}
-				},
-				{
-					"name": "Update Headcount Plan",
-					"request": {
-						"method": "PUT",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							},
-							{
-								"key": "x-api-key",
-								"value": "{{mockApiKey}}",
-								"type": "text"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"status\": \"Filled\",\n    \"endDate\": \"2024-12-31\"\n}"
-						},
-						"url": {
-							"raw": "{{mockApiEndpoint}}/paylocity/headcount-planning/{{planId}}",
-							"host": [
-								"{{mockApiEndpoint}}"
-							],
-							"path": [
-								"paylocity",
-								"headcount-planning",
-								"{{planId}}"
-							]
-						},
-						"description": "Update an existing headcount plan in mock Paylocity API"
-					}
-				},
-				{
-					"name": "Get Headcount Plan",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "x-api-key",
-								"value": "{{mockApiKey}}",
-								"type": "text"
-							}
-						],
-						"url": {
-							"raw": "{{mockApiEndpoint}}/paylocity/headcount-planning/{{planId}}",
-							"host": [
-								"{{mockApiEndpoint}}"
-							],
-							"path": [
-								"paylocity",
-								"headcount-planning",
-								"{{planId}}"
-							]
-						},
-						"description": "Get a headcount plan by ID from mock Paylocity API"
-					}
-				},
-				{
-					"name": "Get Plan by Requisition",
-					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "x-api-key",
-								"value": "{{mockApiKey}}",
-								"type": "text"
-							}
-						],
-						"url": {
-							"raw": "{{mockApiEndpoint}}/paylocity/headcount-planning/requisition/{{requisitionId}}",
-							"host": [
-								"{{mockApiEndpoint}}"
-							],
-							"path": [
-								"paylocity",
-								"headcount-planning",
-								"requisition",
-								"{{requisitionId}}"
-							]
-						},
-						"description": "Get a headcount plan by requisition ID from mock Paylocity API"
-					}
-				},
-				{
-					"name": "Delete Headcount Plan",
-					"request": {
-						"method": "DELETE",
-						"header": [
-							{
-								"key": "x-api-key",
-								"value": "{{mockApiKey}}",
-								"type": "text"
-							}
-						],
-						"url": {
-							"raw": "{{mockApiEndpoint}}/paylocity/headcount-planning/{{planId}}",
-							"host": [
-								"{{mockApiEndpoint}}"
-							],
-							"path": [
-								"paylocity",
-								"headcount-planning",
-								"{{planId}}"
-							]
-						},
-						"description": "Delete a headcount plan from mock Paylocity API"
-					}
-				}
-			]
-		},
-		{
-			"name": "Webhooks",
-			"item": [
-				{
-					"name": "Requisition Status Webhook",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							},
-							{
-								"key": "x-api-key",
-								"value": "{{apiKey}}",
-								"type": "text"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"type\": \"requisition\",\n    \"entityId\": \"{{requisitionId}}\",\n    \"action\": \"status_updated\",\n    \"data\": {\n        \"status\": \"Closed\"\n    }\n}"
-						},
-						"url": {
-							"raw": "{{apiEndpoint}}/api/webhooks/requisition-status",
-							"host": [
-								"{{apiEndpoint}}"
-							],
-							"path": [
-								"api",
-								"webhooks",
-								"requisition-status"
-							]
-						},
-						"description": "Handle requisition status webhook"
-					}
-				},
-				{
-					"name": "Candidate Status Webhook",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							},
-							{
-								"key": "x-api-key",
-								"value": "{{apiKey}}",
-								"type": "text"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"type\": \"candidate\",\n    \"entityId\": \"{{candidateId}}\",\n    \"action\": \"status_updated\",\n    \"data\": {\n        \"requisitionId\": \"{{requisitionId}}\",\n        \"status\": \"hired\"\n    }\n}"
-						},
-						"url": {
-							"raw": "{{apiEndpoint}}/api/webhooks/candidate-status",
-							"host": [
-								"{{apiEndpoint}}"
-							],
-							"path": [
-								"api",
-								"webhooks",
-								"candidate-status"
-							]
-						},
-						"description": "Handle candidate status webhook"
-					}
-				}
-			]
-		}
-	],
-	"event": [
-		{
-			"listen": "prerequest",
-			"script": {
-				"type": "text/javascript",
-				"exec": [
-					""
-				]
-			}
-		},
-		{
-			"listen": "test",
-			"script": {
-				"type": "text/javascript",
-				"exec": [
-					""
-				]
-			}
-		}
-	],
-	"variable": [
-		{
-			"key": "apiEndpoint",
-			"value": "https://your-api-gateway-url/development",
-			"type": "string"
-		},
-		{
-			"key": "mockApiEndpoint",
-			"value": "https://your-mock-api-gateway-url/development",
-			"type": "string"
-		},
-		{
-			"key": "apiKey",
-			"value": "your-api-key",
-			"type": "string"
-		},
-		{
-			"key": "mockApiKey",
-			"value": "your-mock-api-key",
-			"type": "string"
-		},
-		{
-			"key": "requisitionId",
-			"value": "",
-			"type": "string"
-		},
-		{
-			"key": "planId",
-			"value": "",
-			"type": "string"
-		},
-		{
-			"key": "candidateId",
-			"value": "",
-			"type": "string"
-		}
-	]
+  "info": {
+    "_postman_id": "f5d8f8b0-1b8a-4b5e-9b5e-5b0b0b0b0b0b",
+    "name": "ClearCompany-Paylocity Integration",
+    "description": "API collection for ClearCompany and Paylocity integration (no mocks)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "System",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "x-api-key", "value": "{{apiKey}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{apiEndpoint}}/health",
+              "host": ["{{apiEndpoint}}"],
+              "path": ["health"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Main API",
+      "item": [
+        {
+          "name": "Create Requisition",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "x-api-key", "value": "{{apiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Senior Software Engineer\",\n  \"description\": \"We are seeking an experienced Senior Software Engineer to join our growing team. The ideal candidate will have strong experience in cloud technologies and distributed systems.\",\n  \"department\": \"Engineering\",\n  \"location\": \"Remote - US\",\n  \"employmentType\": \"Full-time\",\n  \"salary\": {\n    \"min\": 120000,\n    \"max\": 180000,\n    \"currency\": \"USD\"\n  },\n  \"requirements\": [\n    \"8+ years of software development experience\",\n    \"Strong experience with AWS or similar cloud platforms\",\n    \"Expertise in Node.js/TypeScript\",\n    \"Experience with serverless architectures\"\n  ],\n  \"benefits\": [\n    \"Competitive salary\",\n    \"Health insurance\",\n    \"401(k) matching\",\n    \"Unlimited PTO\"\n  ],\n  \"status\": \"Open\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{apiEndpoint}}/api/requisitions",
+              "host": ["{{apiEndpoint}}"],
+              "path": ["api", "requisitions"]
+            }
+          }
+        },
+        {
+          "name": "Update Requisition",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "x-api-key", "value": "{{apiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Senior Software Engineer - Cloud Platform\",\n  \"description\": \"Updated: We are seeking an experienced Senior Software Engineer to lead our cloud platform initiatives. The ideal candidate will have strong experience in cloud technologies and distributed systems.\",\n  \"department\": \"Engineering\",\n  \"location\": \"Remote - US\",\n  \"employmentType\": \"Full-time\",\n  \"salary\": {\n    \"min\": 130000,\n    \"max\": 190000,\n    \"currency\": \"USD\"\n  },\n  \"status\": \"Open\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{apiEndpoint}}/api/requisitions/{{requisitionId}}",
+              "host": ["{{apiEndpoint}}"],
+              "path": ["api", "requisitions", "{{requisitionId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Webhooks",
+      "item": [
+        {
+          "name": "Requisition Status Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "x-api-key", "value": "{{apiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"requisition\",\n  \"entityId\": \"{{requisitionId}}\",\n  \"action\": \"status_updated\",\n  \"data\": {\n    \"status\": \"approved\"\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{apiEndpoint}}/api/webhooks/requisition-status",
+              "host": ["{{apiEndpoint}}"],
+              "path": ["api", "webhooks", "requisition-status"]
+            }
+          }
+        },
+        {
+          "name": "Candidate Status Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "x-api-key", "value": "{{apiKey}}", "type": "text" },
+              { "key": "Content-Type", "value": "application/json", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"candidate\",\n  \"entityId\": \"{{candidateId}}\",\n  \"action\": \"status_updated\",\n  \"data\": {\n    \"status\": \"hired\",\n    \"requisitionId\": \"{{requisitionId}}\"\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{apiEndpoint}}/api/webhooks/candidate-status",
+              "host": ["{{apiEndpoint}}"],
+              "path": ["api", "webhooks", "candidate-status"]
+            }
+          }
+        }
+      ]
+    }
+  ]
 }

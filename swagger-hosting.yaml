@@ -41,4 +41,4 @@ Resources:
 Outputs:
   SwaggerEndpoint:
     Description: URL for Swagger documentation
-    Value: !Sub http://${SwaggerBucket.WebsiteURL}
+    Value: !GetAtt SwaggerBucket.WebsiteURL

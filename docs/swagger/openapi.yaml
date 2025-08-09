@@ -6,17 +6,7 @@ info:
   contact:
     name: API Support
 servers:
-  - url: https://{apiGatewayId}.execute-api.{region}.amazonaws.com/{stage}
-    variables:
-      apiGatewayId:
-        default: your-api-id
-        description: API Gateway ID
-      region:
-        default: us-east-1
-        description: AWS Region
-      stage:
-        default: development
-        description: API Stage
+  - url: https://0xqw55anre.execute-api.us-east-1.amazonaws.com/development
 
 components:
   securitySchemes:
@@ -50,6 +40,23 @@ components:
           type: string
         status:
           type: string
+        salary:
+          type: object
+          properties:
+            min:
+              type: number
+            max:
+              type: number
+            currency:
+              type: string
+        requirements:
+          type: array
+          items:
+            type: string
+        benefits:
+          type: array
+          items:
+            type: string
         customFields:
           type: object
           additionalProperties: true
@@ -127,9 +134,11 @@ components:
           type: object
           additionalProperties: true
 
-    Error:
+    ApiResponse:
       type: object
       properties:
+        data:
+          type: object
         error:
           type: object
           properties:
@@ -138,10 +147,73 @@ components:
             code:
               type: string
 
+  examples:
+    CreateRequisitionRequest:
+      summary: Example requisition create
+      value:
+        title: Senior Software Engineer
+        description: We are seeking an experienced Senior Software Engineer to join our growing team. The ideal candidate will have strong experience in cloud technologies and distributed systems.
+        department: Engineering
+        location: Remote - US
+        employmentType: Full-time
+        salary:
+          min: 120000
+          max: 180000
+          currency: USD
+        requirements:
+          - 8+ years of software development experience
+          - Strong experience with AWS or similar cloud platforms
+          - Expertise in Node.js/TypeScript
+          - Experience with serverless architectures
+        benefits:
+          - Competitive salary
+          - Health insurance
+          - 401(k) matching
+          - Unlimited PTO
+        status: Open
+    RequisitionStatusWebhook:
+      summary: Requisition status updated
+      value:
+        type: requisition
+        entityId: req-local-stub
+        action: status_updated
+        data:
+          status: approved
+    CandidateStatusWebhook:
+      summary: Candidate hired update
+      value:
+        type: candidate
+        entityId: candidate-123
+        action: status_updated
+        data:
+          status: hired
+          requisitionId: req-local-stub
+
 security:
   - ApiKeyAuth: []
 
 paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: health
+      tags:
+        - System
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  timestamp:
+                    type: string
+                    format: date-time
+
   /api/requisitions:
     post:
       summary: Create a new requisition
@@ -154,25 +226,28 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/Requisition'
+            examples:
+              default:
+                $ref: '#/components/examples/CreateRequisitionRequest'
       responses:
         '201':
-          description: Requisition created successfully
+          description: Requisition created successfully (wrapped)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Requisition'
+                $ref: '#/components/schemas/ApiResponse'
         '400':
           description: Invalid request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/ApiResponse'
         '500':
           description: Internal server error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/ApiResponse'
 
   /api/requisitions/{id}:
     put:
@@ -194,29 +269,29 @@ paths:
               $ref: '#/components/schemas/Requisition'
       responses:
         '200':
-          description: Requisition updated successfully
+          description: Requisition updated successfully (wrapped)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Requisition'
+                $ref: '#/components/schemas/ApiResponse'
         '400':
           description: Invalid request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/ApiResponse'
         '404':
           description: Requisition not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/ApiResponse'
         '500':
           description: Internal server error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/ApiResponse'
 
   /api/webhooks/requisition-status:
     post:
@@ -230,6 +305,9 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/WebhookEvent'
+            examples:
+              default:
+                $ref: '#/components/examples/RequisitionStatusWebhook'
       responses:
         '200':
           description: Webhook processed successfully
@@ -245,13 +323,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/ApiResponse'
         '500':
           description: Internal server error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/ApiResponse'
 
   /api/webhooks/candidate-status:
     post:
@@ -265,6 +343,9 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/WebhookEvent'
+            examples:
+              default:
+                $ref: '#/components/examples/CandidateStatusWebhook'
       responses:
         '200':
           description: Webhook processed successfully
@@ -280,10 +361,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/ApiResponse'
         '500':
           description: Internal server error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/ApiResponse'

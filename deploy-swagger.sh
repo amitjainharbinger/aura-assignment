@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Deploy the Swagger hosting stack
 sam deploy \
@@ -6,17 +7,23 @@ sam deploy \
   --stack-name swagger-docs \
   --capabilities CAPABILITY_IAM \
   --parameter-overrides Environment=development \
-  --no-confirm-changeset
+  --no-confirm-changeset || true
 
-# Get the S3 bucket name
-BUCKET_NAME=$(aws cloudformation describe-stacks \
+# Resolve the bucket name from the stack resources
+BUCKET_NAME=$(aws cloudformation describe-stack-resources \
   --stack-name swagger-docs \
-  --query 'Stacks[0].Outputs[?OutputKey==`SwaggerEndpoint`].OutputValue' \
-  --output text | sed 's/http:\/\///' | sed 's/\/.*//')
+  --logical-resource-id SwaggerBucket \
+  --query 'StackResources[0].PhysicalResourceId' \
+  --output text)
 
-# Upload Swagger files to S3
-aws s3 cp docs/swagger/index.html s3://$BUCKET_NAME/
-aws s3 cp docs/swagger/openapi.yaml s3://$BUCKET_NAME/
+if [ -z "$BUCKET_NAME" ] || [ "$BUCKET_NAME" = "None" ]; then
+  echo "Failed to resolve SwaggerBucket name" >&2
+  exit 1
+fi
+
+echo "Uploading to bucket: $BUCKET_NAME"
+aws s3 cp docs/swagger/index.html s3://$BUCKET_NAME/index.html --cache-control no-store
+aws s3 cp docs/swagger/openapi.yaml s3://$BUCKET_NAME/openapi.yaml --cache-control no-store
 
 # Get the Swagger documentation URL
 SWAGGER_URL=$(aws cloudformation describe-stacks \

@@ -7,6 +7,11 @@ export const requisitionSchema = z.object({
   location: z.string().min(1, 'Location is required'),
   employmentType: z.string().min(1, 'Employment type is required'),
   status: z.string().min(1, 'Status is required'),
+  salary: z.object({
+    min: z.number(),
+    max: z.number(),
+    currency: z.string()
+  }).optional(),
   customFields: z.record(z.unknown()).optional(),
 });
 
@@ -22,13 +27,22 @@ export const createRequisitionSchema = {
         location: { type: 'string', minLength: 1 },
         employmentType: { type: 'string', minLength: 1 },
         status: { type: 'string', minLength: 1 },
+        salary: {
+          type: 'object',
+          properties: {
+            min: { type: 'number' },
+            max: { type: 'number' },
+            currency: { type: 'string' }
+          },
+          required: ['min', 'max', 'currency']
+        },
         customFields: {
           type: 'object',
           additionalProperties: true,
         },
       },
       required: ['title', 'description', 'department', 'location', 'employmentType', 'status'],
-      additionalProperties: false,
+      additionalProperties: true,
     },
   },
   required: ['body'],
@@ -53,14 +67,23 @@ export const updateRequisitionSchema = {
         location: { type: 'string', minLength: 1 },
         employmentType: { type: 'string', minLength: 1 },
         status: { type: 'string', minLength: 1 },
+        salary: {
+          type: 'object',
+          properties: {
+            min: { type: 'number' },
+            max: { type: 'number' },
+            currency: { type: 'string' }
+          },
+          required: ['min', 'max', 'currency']
+        },
         customFields: {
           type: 'object',
           additionalProperties: true,
         },
       },
       minProperties: 1,
-      additionalProperties: false,
+      additionalProperties: true,
     },
   },
   required: ['pathParameters', 'body'],
-}; 
+};

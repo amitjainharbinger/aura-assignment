@@ -1,4 +1,4 @@
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda';
 import { ClearCompanyClient } from '../../lib/clearcompany/client';
 import { PaylocityClient } from '../../lib/paylocity/client';
 import { withMiddleware, formatResponse } from '../../lib/common/middleware';
@@ -30,6 +30,14 @@ const webhookSchema = {
   required: ['body'],
 };
 
+async function handleRequisitionStatusUpdate(entityId: string, newStatus: string): Promise<void> {
+  const paylocityClient = await PaylocityClient.getInstance();
+  const headcountPlan = await paylocityClient.getHeadcountPlanByRequisitionId(entityId);
+  if (headcountPlan) {
+    await paylocityClient.updateHeadcountPlan(headcountPlan.id!, { status: newStatus });
+  }
+}
+
 export const processWebhook = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
@@ -51,42 +59,27 @@ export const processWebhook = async (
 
     // Handle different webhook types
     if (path.includes('requisition-status')) {
-      // Handle requisition status webhook from ClearCompany
       if (webhookEvent.type === 'requisition' && webhookEvent.action === 'status_updated') {
-        const requisitionId = webhookEvent.entityId;
-        const newStatus = webhookEvent.data.status as string;
-
-        // Get the headcount plan from Paylocity
-        const headcountPlan = await paylocityClient.getHeadcountPlanByRequisitionId(requisitionId);
-        if (headcountPlan) {
-          // Update the status in Paylocity
-          await paylocityClient.updateHeadcountPlan(headcountPlan.id!, {
-            status: newStatus,
-          });
-        }
+        await handleRequisitionStatusUpdate(
+          webhookEvent.entityId,
+          webhookEvent.data.status as string
+        );
       }
     } else if (path.includes('candidate-status')) {
-      // Handle candidate status webhook
       if (webhookEvent.type === 'candidate' && webhookEvent.action === 'status_updated') {
         const requisitionId = webhookEvent.data.requisitionId as string;
         const candidateStatus = webhookEvent.data.status as string;
 
-        // Update requisition in ClearCompany if needed based on candidate status
         if (candidateStatus === 'hired') {
           const requisition = await clearCompanyClient.getRequisition(requisitionId);
           if (requisition) {
-            // Update requisition status to filled
-            await clearCompanyClient.updateRequisition(requisitionId, {
-              status: 'filled',
-            });
-
-            // Update headcount plan in Paylocity
+            await clearCompanyClient.updateRequisition(requisitionId, { status: 'filled' });
             const headcountPlan = await paylocityClient.getHeadcountPlanByRequisitionId(requisitionId);
             if (headcountPlan) {
-              await paylocityClient.updateHeadcountPlan(headcountPlan.id!, {
-                status: 'filled',
-                endDate: new Date().toISOString(),
-              });
+              await paylocityClient.updateHeadcountPlan(
+                headcountPlan.id!,
+                ({ status: 'filled', endDate: new Date().toISOString() } as any)
+              );
             }
           }
         }
@@ -108,4 +101,41 @@ export const processWebhook = async (
   }
 };
 
-export const handler = withMiddleware(processWebhook, webhookSchema); 
+export const handler = withMiddleware(processWebhook, webhookSchema);
+
+// EventBridge handler (no middleware)
+export const eventsHandler = async (event: any): Promise<APIGatewayProxyResult> => {
+  try {
+    logger.info('EventBridge event received', { source: event?.source, detailType: event?.['detail-type'], detail: event?.detail });
+
+    if (event?.source === 'com.clearcompany.app' && event?.['detail-type'] === 'requisition.status_updated') {
+      const detail = event.detail || {};
+      const entityId: string = detail.entityId || detail.requisitionId;
+      const status: string = detail.status || 'approved';
+      await handleRequisitionStatusUpdate(entityId, status);
+    }
+
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ok: true })
+    };
+  } catch (err) {
+    logger.error('EventBridge handler error', { err });
+    return {
+      statusCode: 500,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ok: false })
+    };
+  }
+};
+
+// Router that supports both API Gateway and EventBridge events
+export const router = async (event: any, context: Context): Promise<any> => {
+  const isEventBridge = !!event?.['detail-type'] && !!event?.source;
+  if (isEventBridge) {
+    return eventsHandler(event);
+  }
+  // Delegate to middy-wrapped API handler
+  return (handler as any)(event, context);
+}; 
