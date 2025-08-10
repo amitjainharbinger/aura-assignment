@@ -28,14 +28,12 @@ graph TB
 
     subgraph "API Layer"
         APIG[API Gateway]
-        MockAPIG[Mock API Gateway]
     end
 
     subgraph "Business Logic"
+        HealthLambda[Health Check]
         ReqLambda[Requisition Lambda]
         WebhookLambda[Webhook Lambda]
-        MockCC[Mock ClearCompany API]
-        MockPL[Mock Paylocity API]
     end
 
     subgraph "Data Layer"
@@ -47,30 +45,34 @@ graph TB
         EB[EventBridge]
     end
 
+    subgraph "External APIs"
+        CC[ClearCompany API]
+        PL[Paylocity API]
+    end
+
     Client --> APIG
-    Client --> MockAPIG
+    APIG --> HealthLambda
     APIG --> ReqLambda
     APIG --> WebhookLambda
-    MockAPIG --> MockCC
-    MockAPIG --> MockPL
     ReqLambda --> DDB
     WebhookLambda --> DDB
-    MockCC --> DDB
-    MockPL --> DDB
     ReqLambda --> SecMgr
-    MockCC --> EB
-    MockPL --> EB
+    ReqLambda --> CC
+    ReqLambda --> PL
+    ReqLambda --> EB
     EB --> WebhookLambda
+    CC -.-> WebhookLambda
+    PL -.-> WebhookLambda
 ```
 
 ### 2.2 Component Details
 
 #### 2.2.1 API Gateway Layer
-- Main API Gateway for client interactions
-- Separate Mock API Gateway for development
+- Single API Gateway for all client interactions
 - API key authentication
-- CORS support
+- CORS support for web applications
 - Request/response validation
+- Health check endpoint for monitoring
 
 #### 2.2.2 Lambda Functions Layer
 ```mermaid
@@ -78,23 +80,23 @@ graph LR
     subgraph "Lambda Functions"
         direction TB
         
-        subgraph "Integration Functions"
+        subgraph "Core Functions"
+            Health[Health Check]
             CreateReq[Create Requisition]
             UpdateReq[Update Requisition]
             Webhook[Webhook Handler]
         end
         
-        subgraph "Mock APIs"
-            MockCC[ClearCompany Mock]
-            MockPL[Paylocity Mock]
+        subgraph "External Integration"
+            CC[ClearCompany Client]
+            PL[Paylocity Client]
         end
         
-        CreateReq --> MockCC
-        CreateReq --> MockPL
-        UpdateReq --> MockCC
-        UpdateReq --> MockPL
-        MockCC --> Webhook
-        MockPL --> Webhook
+        CreateReq --> CC
+        CreateReq --> PL
+        UpdateReq --> CC
+        UpdateReq --> PL
+        CreateReq --> Webhook
     end
 ```
 
@@ -102,20 +104,19 @@ graph LR
 ```mermaid
 graph TB
     subgraph "DynamoDB Tables"
-        IntState[(Integration State)]
-        CCData[(ClearCompany Data)]
-        PLData[(Paylocity Data)]
+        IntState[(Integration State Table)]
     end
 
-    subgraph "Table Schemas"
-        IntState --> IntSchema[Integration Schema]
-        CCData --> CCSchema[ClearCompany Schema]
-        PLData --> PLSchema[Paylocity Schema]
+    subgraph "Secrets Manager"
+        ApiCreds[(API Credentials)]
     end
 
-    IntSchema --> |Contains| IntFields[id, mappings, status]
-    CCSchema --> |Contains| CCFields[id, requisition data]
-    PLSchema --> |Contains| PLFields[id, headcount data]
+    subgraph "Data Schema"
+        IntState --> IntSchema[Requisition Records]
+    end
+
+    IntSchema --> |Contains| IntFields[id, title, description, department, location, status, timestamps, headcountPlanId]
+    ApiCreds --> |Contains| CredFields[clearCompanyApiKey, paylocityApiKey]
 ```
 
 ## 3. Implementation Approach
@@ -127,38 +128,50 @@ graph TB
 sequenceDiagram
     participant Client
     participant API as API Gateway
-    participant Lambda
-    participant MockCC as Mock ClearCompany
-    participant MockPL as Mock Paylocity
+    participant Lambda as Create Lambda
+    participant CC as ClearCompany API
+    participant PL as Paylocity API
     participant DB as DynamoDB
     participant EB as EventBridge
+    participant WH as Webhook Lambda
 
     Client->>API: Create Requisition Request
     API->>Lambda: Trigger Lambda
-    Lambda->>MockCC: Create in ClearCompany
-    MockCC->>DB: Store Mock Data
-    MockCC->>EB: Emit Creation Event
-    Lambda->>MockPL: Create Headcount Plan
-    MockPL->>DB: Store Mock Data
-    MockPL->>EB: Emit Plan Event
-    EB->>Lambda: Process Events
-    Lambda->>Client: Return Response
+    
+    alt DRY_RUN Mode
+        Lambda->>DB: Store Stubbed Data
+        Lambda->>EB: Emit Status Event
+        Lambda->>Client: Return Stubbed Response
+    else Production Mode
+        Lambda->>CC: Create in ClearCompany
+        Lambda->>PL: Create Headcount Plan
+        Lambda->>DB: Store Integration Data
+        Lambda->>EB: Emit Status Event
+        Lambda->>Client: Return Response
+    end
+    
+    EB->>WH: Trigger Webhook Processing
+    WH->>DB: Update Status
 ```
 
 #### 3.1.2 Status Update Flow
 ```mermaid
 sequenceDiagram
-    participant Source
-    participant EB as EventBridge
-    participant Lambda
-    participant Target
+    participant External as External System
+    participant API as API Gateway
+    participant WH as Webhook Lambda
     participant DB as DynamoDB
+    participant EB as EventBridge
 
-    Source->>EB: Status Change Event
-    EB->>Lambda: Trigger Handler
-    Lambda->>DB: Update State
-    Lambda->>Target: Sync Status
-    Target->>DB: Update Target State
+    alt Direct Webhook
+        External->>API: POST /webhooks/requisition-status
+        API->>WH: Process Webhook
+    else EventBridge Trigger
+        EB->>WH: Status Change Event
+    end
+    
+    WH->>DB: Update Requisition Status
+    WH->>External: Return Success Response
 ```
 
 ### 3.2 Code Organization
@@ -166,31 +179,53 @@ sequenceDiagram
 ```
 src/
 ├── functions/
+│   ├── health/
+│   │   └── index.ts        # Health check endpoint
 │   ├── requisition/
 │   │   ├── create.ts       # Requisition creation
 │   │   ├── update.ts       # Requisition updates
 │   │   └── schema.ts       # Validation schemas
-│   ├── webhook/
-│   │   └── handler.ts      # Webhook processing
-│   └── mocks/
-│       ├── clearcompany.ts # ClearCompany mock
-│       └── paylocity.ts    # Paylocity mock
+│   └── webhook/
+│       └── handler.ts      # Webhook processing
 ├── lib/
 │   ├── clearcompany/
-│   │   └── client.ts       # ClearCompany client
+│   │   └── client.ts       # ClearCompany client with DRY_RUN support
 │   ├── paylocity/
-│   │   └── client.ts       # Paylocity client
+│   │   └── client.ts       # Paylocity client with DRY_RUN support
+│   ├── storage/
+│   │   └── requisitions.ts # DynamoDB operations
 │   └── common/
 │       ├── errors.ts       # Error handling
 │       ├── logger.ts       # Logging
 │       └── middleware.ts   # Lambda middleware
-└── models/
-    └── types.ts            # TypeScript types
 ```
 
-### 3.3 Error Handling Strategy
+### 3.3 DRY_RUN Mode Implementation
 
-#### 3.3.1 Error Categories
+#### 3.3.1 Development and Testing Strategy
+The application includes a `DRY_RUN` mode that allows for local development and testing without making actual API calls to external systems.
+
+```typescript
+// Environment variable configuration
+DRY_RUN: "true"  // Set in template.yaml for development
+
+// Client implementation
+if (process.env.DRY_RUN === 'true') {
+    logger.info('DRY_RUN enabled, returning stubbed response');
+    return new StubbedClient();
+}
+```
+
+#### 3.3.2 DRY_RUN Benefits
+- **Local Development**: Test without external API dependencies
+- **Cost Optimization**: Avoid external API charges during development
+- **Reliability**: Consistent responses for testing
+- **Speed**: Faster execution without network calls
+- **Data Persistence**: Still saves data to DynamoDB for testing workflows
+
+### 3.4 Error Handling Strategy
+
+#### 3.4.1 Error Categories
 ```typescript
 // Base error class
 class BaseError extends Error {
@@ -217,7 +252,7 @@ class IntegrationError extends BaseError {
 }
 ```
 
-#### 3.3.2 Error Handling Flow
+#### 3.4.2 Error Handling Flow
 ```mermaid
 graph TD
     A[Error Occurs] --> B{Error Type?}
@@ -231,9 +266,9 @@ graph TD
     G --> H[Return to Client]
 ```
 
-### 3.4 Testing Strategy
+### 3.5 Testing Strategy
 
-#### 3.4.1 Test Layers
+#### 3.5.1 Test Layers
 ```mermaid
 graph TB
     Unit[Unit Tests] --> Integration[Integration Tests]
@@ -253,7 +288,7 @@ graph TB
     
     subgraph "E2E Tests"
         Flow[Complete Flows]
-        Mock[Mock API Tests]
+        DryRun[DRY_RUN Mode Tests]
     end
 ```
 

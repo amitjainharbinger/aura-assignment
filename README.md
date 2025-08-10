@@ -8,12 +8,11 @@ This project implements a serverless integration between ClearCompany's ATS and 
 
 ### Key Components
 
-1. **API Gateway**: RESTful API endpoints for handling requests
-2. **Lambda Functions**: Serverless functions for business logic
-3. **DynamoDB**: For storing integration state and audit logs
+1. **API Gateway**: RESTful API endpoints with CORS support and API key authentication
+2. **Lambda Functions**: Serverless functions for business logic with DRY_RUN mode support
+3. **DynamoDB**: For storing requisition records and integration state
 4. **AWS Secrets Manager**: Secure storage of API credentials
-5. **EventBridge**: For scheduling and managing webhook events
-6. **Mock APIs**: Mock implementations of ClearCompany and Paylocity APIs for development and testing
+5. **EventBridge**: For event-driven architecture and automatic webhook triggering
 
 ## Features
 
@@ -39,9 +38,10 @@ This project implements a serverless integration between ClearCompany's ATS and 
 
 - AWS Account with appropriate permissions
 - AWS SAM CLI installed
+- Docker (for local testing with SAM)
 - Node.js 18.x or later
-- ClearCompany API credentials (or use mock APIs)
-- Paylocity API credentials (or use mock APIs)
+- ClearCompany API credentials (optional - can use DRY_RUN mode)
+- Paylocity API credentials (optional - can use DRY_RUN mode)
 
 ## Project Structure
 
@@ -49,22 +49,21 @@ This project implements a serverless integration between ClearCompany's ATS and 
 .
 ├── src/
 │   ├── functions/
-│   │   ├── requisition/
-│   │   ├── webhook/
-│   │   ├── candidate/
-│   │   └── mocks/           # Mock API implementations
+│   │   ├── health/         # Health check endpoint
+│   │   ├── requisition/    # Create/update requisitions
+│   │   └── webhook/        # Webhook handlers
 │   ├── lib/
-│   │   ├── clearcompany/
-│   │   ├── paylocity/
-│   │   └── common/
-│   └── models/
-├── docs/
-│   ├── swagger/            # API Documentation
-│   └── architecture.png
-├── postman/               # Postman Collection and Environment
-├── tests/
-├── template.yaml          # Main SAM template
-└── swagger-hosting.yaml   # Swagger hosting configuration
+│   │   ├── clearcompany/   # ClearCompany client with DRY_RUN support
+│   │   ├── paylocity/      # Paylocity client with DRY_RUN support
+│   │   ├── storage/        # DynamoDB operations
+│   │   └── common/         # Shared utilities
+├── docs/                  # Documentation
+│   ├── swagger/           # API Documentation
+│   └── *.md              # Architecture and solution docs
+├── postman/              # Postman Collection and Environment
+├── tests/                # Unit tests
+├── template.yaml         # Main SAM template
+└── swagger-hosting.yaml  # Swagger hosting configuration
 ```
 
 ## Setup Instructions
@@ -91,12 +90,9 @@ This project implements a serverless integration between ClearCompany's ATS and 
 
 5. **Deploy the Application**
    ```bash
-   # Deploy main application
-   sam build
-   sam deploy --guided
-
-   # Deploy mock APIs (optional)
-   sam deploy --template-file template.yaml --parameter-overrides UseMockApis=true
+   # Build and deploy the application
+   ./build.sh
+   sam deploy --stack-name sam-app --capabilities CAPABILITY_IAM --no-confirm-changeset --no-fail-on-empty-changeset --parameter-overrides Environment=development LogLevel=info
 
    # Deploy Swagger documentation
    ./deploy-swagger.sh
@@ -122,59 +118,52 @@ To update the Swagger documentation:
 
 A Postman collection is available in the `postman` directory:
 1. Import `ClearCompany-Paylocity-Integration.postman_collection.json`
-2. Import `Development.postman_environment.json`
+2. Import `Production.postman_environment.json`
 3. Update environment variables:
    - `apiEndpoint`: Your API Gateway URL
-   - `mockApiEndpoint`: Your mock API Gateway URL (if using mock APIs)
    - `apiKey`: Your API Gateway API key
 
 ### Endpoints
 
-1. **Main API**
+1. **Health Check**
+   - GET /health
+
+2. **Requisition Management**
    - POST /api/requisitions
    - PUT /api/requisitions/{id}
-   - GET /api/requisitions/{id}
 
-2. **Webhook Handlers**
+3. **Webhook Handlers**
    - POST /api/webhooks/requisition-status
    - POST /api/webhooks/candidate-status
 
-3. **Mock ClearCompany API**
-   - POST /clearcompany/requisitions
-   - PUT /clearcompany/requisitions/{id}
-   - GET /clearcompany/requisitions/{id}
-   - DELETE /clearcompany/requisitions/{id}
+## DRY_RUN Mode
 
-4. **Mock Paylocity API**
-   - POST /paylocity/headcount-planning
-   - PUT /paylocity/headcount-planning/{id}
-   - GET /paylocity/headcount-planning/{id}
-   - GET /paylocity/headcount-planning/requisition/{id}
-   - DELETE /paylocity/headcount-planning/{id}
+The application includes a `DRY_RUN` mode for development and testing without external API dependencies.
 
-## Mock APIs
+### Using DRY_RUN Mode
 
-The project includes mock implementations of both ClearCompany and Paylocity APIs for development and testing purposes.
+DRY_RUN mode is enabled by default in the SAM template:
+```yaml
+# In template.yaml
+Globals:
+  Function:
+    Environment:
+      Variables:
+        DRY_RUN: "true"
+```
 
-### Using Mock APIs
+When DRY_RUN is enabled, the application will:
+- Skip external API calls to ClearCompany and Paylocity
+- Return stubbed responses with realistic data
+- Still persist data to DynamoDB for testing workflows
+- Publish EventBridge events for complete flow testing
+- Generate dynamic UUIDs for realistic simulation
 
-1. Deploy with mock APIs enabled:
-   ```bash
-   sam deploy --parameter-overrides UseMockApis=true
-   ```
-
-2. The mock APIs will:
-   - Store data in DynamoDB tables
-   - Emit events via EventBridge
-   - Simulate webhook notifications
-   - Provide realistic API responses
-
-3. Mock API features:
-   - Full CRUD operations
-   - Data persistence
-   - Event notifications
-   - Error simulation
-   - Realistic latency
+### Benefits
+- **Cost Optimization**: No external API charges during development
+- **Reliability**: Consistent responses for testing
+- **Speed**: Faster execution without network calls
+- **Isolation**: Test business logic independently
 
 ## Development Guidelines
 
@@ -185,7 +174,8 @@ The project includes mock implementations of both ClearCompany and Paylocity API
 
 2. **Testing**
    - Write unit tests for all business logic
-   - Integration tests for API endpoints
+   - Integration tests using DRY_RUN mode
+   - End-to-end testing with Postman
    - Run tests: `npm test`
 
 3. **Security Best Practices**
@@ -201,6 +191,12 @@ The project includes mock implementations of both ClearCompany and Paylocity API
    - Error tracking
    - Performance metrics
 
+5. **Local Development**
+   - Use `sam local start-api` for local API testing
+   - Requires Docker for Lambda runtime simulation
+   - DRY_RUN mode works in local environment
+   - Test with `sam local invoke` for individual functions
+
 ## Error Handling
 
 - Centralized error handling middleware
@@ -212,14 +208,16 @@ The project includes mock implementations of both ClearCompany and Paylocity API
 
 ### Development
 ```bash
-sam build
-sam deploy --guided --stack-name dev-integration
+./build.sh
+sam deploy --stack-name sam-app --capabilities CAPABILITY_IAM --no-confirm-changeset --no-fail-on-empty-changeset --parameter-overrides Environment=development LogLevel=info
 ```
 
 ### Production
 ```bash
-sam build
-sam deploy --guided --stack-name prod-integration
+# Set DRY_RUN to false for production
+# Update template.yaml: DRY_RUN: "false"
+./build.sh
+sam deploy --stack-name prod-integration --capabilities CAPABILITY_IAM --no-confirm-changeset --no-fail-on-empty-changeset --parameter-overrides Environment=production LogLevel=warn
 ```
 
 ## Testing
@@ -238,9 +236,20 @@ npm run test:coverage
 ## Monitoring and Logging
 
 - CloudWatch Logs for Lambda functions
-- CloudWatch Metrics for API Gateway
+- CloudWatch Metrics for API Gateway  
 - X-Ray for distributed tracing
 - Custom metrics for business KPIs
+
+### Viewing DynamoDB Data
+
+To view stored requisition data:
+```bash
+# List all items in the table
+aws dynamodb scan --table-name sam-app-integration-state
+
+# Get specific requisition
+aws dynamodb get-item --table-name sam-app-integration-state --key '{"id": {"S": "your-requisition-id"}}'
+```
 
 ## Contributing
 
