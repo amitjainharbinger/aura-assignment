@@ -5,6 +5,7 @@ import { withMiddleware, formatResponse } from '../../lib/common/middleware';
 import { ValidationError, NotFoundError } from '../../lib/common/errors';
 import logger from '../../lib/common/logger';
 import { requisitionSchema, updateRequisitionSchema } from './schema';
+import { RequisitionRepository } from '../../lib/storage/requisitions';
 
 export const updateRequisitionHandler = async (
   event: APIGatewayProxyEvent
@@ -26,8 +27,11 @@ export const updateRequisitionHandler = async (
       PaylocityClient.getInstance(),
     ]);
 
-    // Get existing requisition
-    const existingRequisition = await clearCompanyClient.getRequisition(requisitionId);
+    // Get existing requisition from persistence first
+    const persisted = await RequisitionRepository.get(requisitionId);
+
+    // Get existing requisition from ClearCompany if not in DB
+    const existingRequisition = persisted || (await clearCompanyClient.getRequisition(requisitionId));
     if (!existingRequisition) {
       throw new NotFoundError('Requisition not found');
     }
@@ -42,7 +46,18 @@ export const updateRequisitionHandler = async (
       validatedData
     );
 
-    // Update corresponding headcount plan in Paylocity if necessary fields changed
+    // Persist changes
+    await RequisitionRepository.updateFields(requisitionId, {
+      ...(validatedData.title && { title: validatedData.title }),
+      ...(validatedData.description && { description: validatedData.description }),
+      ...(validatedData.department && { department: validatedData.department }),
+      ...(validatedData.location && { location: validatedData.location }),
+      ...(validatedData.employmentType && { employmentType: validatedData.employmentType }),
+      ...(validatedData.status && { status: validatedData.status }),
+      updatedAt: new Date().toISOString(),
+    });
+
+    // Update headcount plan in Paylocity if necessary fields changed
     if (validatedData.department || validatedData.title || validatedData.status) {
       logger.info('Updating headcount plan in Paylocity', {
         requisitionId,

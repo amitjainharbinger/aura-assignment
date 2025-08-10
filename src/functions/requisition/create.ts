@@ -6,6 +6,7 @@ import { ValidationError } from '../../lib/common/errors';
 import logger from '../../lib/common/logger';
 import { requisitionSchema, createRequisitionSchema } from './schema';
 import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge';
+import { RequisitionRepository, RequisitionRecord } from '../../lib/storage/requisitions';
 import { randomUUID } from 'crypto';
 
 const eventBridge = new EventBridgeClient({});
@@ -49,6 +50,22 @@ export const createRequisitionHandler = async (
   if (isSamLocal) {
     logger.info('createRequisitionHandler:shortCircuit:samLocal');
     const id = randomUUID();
+    const now = new Date().toISOString();
+    const rec: RequisitionRecord = {
+      id,
+      title: body.title,
+      description: body.description,
+      department: body.department,
+      location: body.location,
+      employmentType: body.employmentType,
+      status: body.status,
+      salary: (body as any).salary,
+      requirements: (body as any).requirements,
+      benefits: (body as any).benefits,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await RequisitionRepository.put(rec);
     await publishRequisitionStatusUpdate(id, 'approved');
     return formatResponse(201, { data: { id, ...body } });
   }
@@ -59,6 +76,22 @@ export const createRequisitionHandler = async (
   if (isDryRun) {
     logger.info('createRequisitionHandler:shortCircuit:dryRun');
     const stubId = randomUUID();
+    const now = new Date().toISOString();
+    const rec: RequisitionRecord = {
+      id: stubId,
+      title: body.title,
+      description: body.description,
+      department: body.department,
+      location: body.location,
+      employmentType: body.employmentType,
+      status: body.status,
+      salary: (body as any).salary,
+      requirements: (body as any).requirements,
+      benefits: (body as any).benefits,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await RequisitionRepository.put(rec);
     await publishRequisitionStatusUpdate(stubId, 'approved');
     return formatResponse(201, { data: { id: stubId, ...body } });
   }
@@ -86,6 +119,24 @@ export const createRequisitionHandler = async (
     }
     logger.info('createRequisitionHandler:clearcompany:create:ok', { createdRequisition });
 
+    // Persist to DynamoDB
+    const now = new Date().toISOString();
+    const record: RequisitionRecord = {
+      id: createdRequisition.id,
+      title: createdRequisition.title,
+      description: createdRequisition.description,
+      department: createdRequisition.department,
+      location: createdRequisition.location,
+      employmentType: createdRequisition.employmentType,
+      status: createdRequisition.status,
+      salary: (createdRequisition as any).salary,
+      requirements: (createdRequisition as any).requirements,
+      benefits: (createdRequisition as any).benefits,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await RequisitionRepository.put(record);
+
     // Emit status update event so webhook handler auto-triggers
     await publishRequisitionStatusUpdate(createdRequisition.id!, createdRequisition.status || 'approved');
 
@@ -103,6 +154,13 @@ export const createRequisitionHandler = async (
       headcount: 1,
       budget: 0,
     });
+    // Optionally store plan id if returned
+    try {
+      const plan = await paylocityClient.getHeadcountPlanByRequisitionId(createdRequisition.id!);
+      if (plan?.id) {
+        await RequisitionRepository.setHeadcountPlanId(createdRequisition.id!, plan.id);
+      }
+    } catch {}
     logger.info('createRequisitionHandler:paylocity:createPlan:ok');
 
     logger.info('createRequisitionHandler:response:begin');

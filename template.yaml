@@ -110,13 +110,17 @@ Resources:
         - Statement:
             - Effect: Allow
               Action:
-                - secretsmanager:GetSecretValue
-              Resource: !Ref ApiCredentialsSecret
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+              Resource: !GetAtt IntegrationStateTable.Arn
         - Statement:
             - Effect: Allow
               Action:
-                - events:PutEvents
-              Resource: !GetAtt AppEventBus.Arn
+                - secretsmanager:GetSecretValue
+              Resource: !Ref ApiCredentialsSecret
+        - EventBridgePutEventsPolicy:
+            EventBusName: !Ref AppEventBus      
 
   RequisitionUpdateFunction:
     Type: AWS::Serverless::Function
@@ -133,6 +137,13 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref IntegrationStateTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+              Resource: !GetAtt IntegrationStateTable.Arn
         - Statement:
             - Effect: Allow
               Action:
@@ -166,6 +177,21 @@ Resources:
               detail-type:
                 - "requisition.status_updated"
             EventBusName: !Ref AppEventBus
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref IntegrationStateTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+              Resource: !GetAtt IntegrationStateTable.Arn
+        - Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: !Ref ApiCredentialsSecret
       # Additional function alias to route EventBridge to eventsHandler
   WebhookEventsHandlerAlias:
     Type: AWS::Lambda::Version

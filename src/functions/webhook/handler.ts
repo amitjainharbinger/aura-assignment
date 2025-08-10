@@ -4,6 +4,7 @@ import { PaylocityClient } from '../../lib/paylocity/client';
 import { withMiddleware, formatResponse } from '../../lib/common/middleware';
 import { ValidationError } from '../../lib/common/errors';
 import logger from '../../lib/common/logger';
+import { RequisitionRepository } from '../../lib/storage/requisitions';
 
 interface WebhookEvent {
   type: string;
@@ -36,6 +37,8 @@ async function handleRequisitionStatusUpdate(entityId: string, newStatus: string
   if (headcountPlan) {
     await paylocityClient.updateHeadcountPlan(headcountPlan.id!, { status: newStatus });
   }
+  // Persist status change
+  await RequisitionRepository.updateStatus(entityId, newStatus);
 }
 
 export const processWebhook = async (
